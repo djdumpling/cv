@@ -1,0 +1,9 @@
+# minimal training/model hyperparams
+# check for sanity
+data_root: null
+shards_pattern: null
+shuffle_buffer: 2000
+num_workers: 4
+batch_size: 8
+image_size: 256
+center_crop: false
