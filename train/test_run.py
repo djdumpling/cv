@@ -19,8 +19,13 @@ def main(cfg):
     print(OmegaConf.to_yaml(cfg))
 
     set_seed(cfg.seed)
-    assert torch.cuda.is_available(), "CUDA required for Day-1 sanity."
-    device = torch.device(cfg.device)
+    
+    # Check device availability
+    if cfg.device == "cuda" and not torch.cuda.is_available():
+        print("[Warn] CUDA not available, falling back to CPU")
+        device = torch.device("cpu")
+    else:
+        device = torch.device(cfg.device)
 
     # Load subconfigs
     data_cfg  = OmegaConf.load(os.path.join(hydra.utils.get_original_cwd(), "configs", "data.yaml"))
@@ -56,7 +61,8 @@ def main(cfg):
     # Warmup
     for _ in range(5):
         y = model(x)
-    torch.cuda.synchronize()
+    if device.type == "cuda":
+        torch.cuda.synchronize()
 
     # Timed runs for bf16/fp16 toggles
     def bench(run_dtype):
@@ -67,7 +73,8 @@ def main(cfg):
         t0 = time.time()
         for _ in range(iters):
             y = model(x)
-        torch.cuda.synchronize()
+        if device.type == "cuda":
+            torch.cuda.synchronize()
         dt = (time.time() - t0) * 1000.0 / iters
         print(f"[Bench] dtype={run_dtype} avg_forward_ms={dt:.3f}")
 

@@ -1,6 +1,7 @@
 defaults:
-  - data: data
-  - train: train
+  - _self_
+  - data
+  - train
 
 device: cuda
 seed: 1234

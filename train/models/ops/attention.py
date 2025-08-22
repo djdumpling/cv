@@ -40,7 +40,9 @@ class MultiheadAttentionFlash(nn.Module):
     @staticmethod
     def _rearrange_qkv(x: torch.Tensor, num_heads: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         B, L, C = x.shape
-        qkv = x.view(B, L, 3, num_heads, C // num_heads).permute(2, 0, 3, 1, 4)  # (3, B, H, L, D)
+        # C = 3 * embed_dim, so head_dim = embed_dim // num_heads = C // (3 * num_heads)
+        head_dim = C // (3 * num_heads)
+        qkv = x.view(B, L, 3, num_heads, head_dim).permute(2, 0, 3, 1, 4)  # (3, B, H, L, D)
         q, k, v = qkv[0], qkv[1], qkv[2]
         return q, k, v  # [B, H, L, D]
 
