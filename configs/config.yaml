@@ -1,0 +1,7 @@
+defaults:
+  - data: data
+  - train: train
+
+device: cuda
+seed: 1234
+log_every: 50

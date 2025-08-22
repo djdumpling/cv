@@ -1,0 +1,18 @@
+# Core
+torch==2.4.*          # or the version that ships in your NGC container (keep CUDA=12.4 build)
+torchvision==0.19.*   # optional but handy
+
+# Configs / utils
+hydra-core>=1.3
+omegaconf>=2.3
+einops>=0.7
+tqdm>=4.66
+numpy>=1.26
+pillow>=10.2
+
+# Data
+webdataset>=0.2.86
+
+# Build helpers for flash-attn
+ninja>=1.11
+packaging>=23.2
