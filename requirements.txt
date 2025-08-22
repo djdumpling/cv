@@ -13,6 +13,9 @@ pillow>=10.2
 # Data
 webdataset>=0.2.86
 
+# FlashAttention for H100 optimization
+flash-attn>=2.0.0
+
 # Build helpers for flash-attn
 ninja>=1.11
 packaging>=23.2
