@@ -15,23 +15,23 @@ def set_seed(seed: int):
 
 @hydra.main(config_path="../configs", config_name="config", version_base=None)
 def main(cfg):
-    print("=== SOTA T2I Day-1 Sanity ===")
+    print("Test run")
     print(OmegaConf.to_yaml(cfg))
 
     set_seed(cfg.seed)
     
-    # Check device availability
+    # should be on cuda
     if cfg.device == "cuda" and not torch.cuda.is_available():
         print("[Warn] CUDA not available, falling back to CPU")
         device = torch.device("cpu")
     else:
         device = torch.device(cfg.device)
 
-    # Load subconfigs
+    # load subconfigs
     data_cfg  = OmegaConf.load(os.path.join(hydra.utils.get_original_cwd(), "configs", "data.yaml"))
     train_cfg = OmegaConf.load(os.path.join(hydra.utils.get_original_cwd(), "configs", "train.yaml"))
 
-    # Build model
+    # build model
     dtype = torch.bfloat16 if train_cfg.dtype == "bf16" else torch.float16
     model = TinyDiT(
         dim=train_cfg.embed_dim,
@@ -43,28 +43,28 @@ def main(cfg):
         use_flash_attn=train_cfg.use_flash_attn,
     ).to(device=device, dtype=dtype)
 
-    # Report which backend is selected
+    # which backend is selected
     attn_backend = model.layers[0].attn.report_backend()
     print(f"[Info] Attention backend selected: {attn_backend}")
 
-    # Try to import flash_attn and print version if present
+    # import flash_attn
     try:
         import flash_attn
         print(f"[Info] flash_attn version: {getattr(flash_attn, '__version__', 'unknown')}")
     except Exception as e:
         print(f"[Warn] flash_attn not found or failed to import: {e}")
 
-    # Synthetic batch (B, L, C)
+    # synthetic batch (B, L, C)
     B, L, C = 4, train_cfg.seq_len, train_cfg.embed_dim
     x = torch.randn(B, L, C, device=device, dtype=dtype)
 
-    # Warmup
+    # warmup
     for _ in range(5):
         y = model(x)
     if device.type == "cuda":
         torch.cuda.synchronize()
 
-    # Timed runs for bf16/fp16 toggles
+    # timed runs for bf16/fp16 toggles
     def bench(run_dtype):
         nonlocal model, x
         model = model.to(dtype=run_dtype)
@@ -85,7 +85,7 @@ def main(cfg):
         bench(torch.float16)
         bench(torch.bfloat16)
 
-    # Optional: construct a loader (no shards needed on Day-1)
+    # constructing a loader, but no shards
     if data_cfg.shards_pattern is None:
         print("[Info] Skipping WebDataset loader (no shards_pattern set).")
     else:
