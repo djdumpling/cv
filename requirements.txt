@@ -9,9 +9,13 @@ einops>=0.7
 tqdm>=4.66
 numpy>=1.26
 pillow>=10.2
+pandas>=2.0
 
 # Data
 webdataset>=0.2.86
+datasets>=2.18
+pyarrow>=15.0
+img2dataset>=1.43.0
 
 # FlashAttention for H100 optimization
 flash-attn>=2.0.0

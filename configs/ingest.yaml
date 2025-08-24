@@ -1,0 +1,46 @@
+defaults:
+  - override /data: data
+  - _self_
+
+# build sources
+sources:
+  laion_aesthetic: true
+  datacomp_commonpool: false   # set true to also add a curated slice from DataComp
+
+# global output roots
+out_root: ./manifests
+shards_root: ./data/shards
+
+# sharding goal (approx by samples/shard to ~1GiB)
+target_shard_size_bytes: 1073741824
+
+# img2dataset parameters
+# need to change this around by a lot
+img2dataset:
+  output_format: webdataset
+  image_size: 512                 # maybe larger later?
+  resize_mode: keep_ratio         # maybe center_crop later?
+  processes_count: 8
+  thread_count: 64
+  timeout: 10
+  number_sample_per_shard: null   # auto-computed by our planner if null
+
+# LAION-Aesthetics filters
+# alternative: laion/laion1B-nolang-aesthetic (then detect language downstream)
+laion:
+  dataset_name: laion/laion2B-en-aesthetic
+  min_aesthetic: 6.5
+  max_pwatermark: 0.8
+  max_punsafe: 0.5
+  limit: null
+  out_name: laion_aesthetic_6p5
+
+# DataComp (optional) - use their candidate pool with simple quality filters
+datacomp:
+  # provide a parquet path or remote URL; or leave null to skip
+  parquet_url: null
+  min_similarity: 0.25
+  max_pwatermark: 0.8
+  max_punsafe: 0.5
+  limit: null
+  out_name: datacomp_slice

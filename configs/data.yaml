@@ -1,6 +1,6 @@
 # minimal training/model hyperparams
-# check for sanity
-data_root: null
+# check for sanity (overrided by ingest.yaml)
+data_root: ${oc.env:DATA_SHARDS_ROOT,./data/shards}
 shards_pattern: null
 shuffle_buffer: 2000
 num_workers: 4
