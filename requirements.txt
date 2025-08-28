@@ -7,7 +7,7 @@ torch==2.4.0
 torchvision==0.19.0
 
 # FlashAttention for H100 optimization
-flash-attn>=2.5.9
+flash-attn>=2.8.3
 
 # Configs / utils
 hydra-core>=1.3

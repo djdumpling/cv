@@ -1,5 +1,4 @@
 defaults:
-  - override /data: data
   - _self_
 
 # build sources
