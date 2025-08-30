@@ -124,8 +124,7 @@ def main(cfg):
     # img2dataset job JSON
     # We preserve auxiliary columns so they are available in shard .json sidecars.
     job = {
-        "input_format": "parquet",
-        "input_shards": [pq_path],
+        "url_list": pq_path,  # img2dataset expects url_list, not input_shards
         "url_col": "url",
         "caption_col": "caption_orig",
         "save_additional_columns": [
