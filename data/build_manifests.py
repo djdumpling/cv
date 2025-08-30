@@ -35,12 +35,17 @@ def _ensure_dir(p: str):
 def _write_outputs(df: pd.DataFrame, out_root: str, out_name: str):
     _ensure_dir(out_root)
     pq_path = os.path.join(out_root, f"{out_name}.parquet")
-    csv_path = os.path.join(out_root, f"{out_name}.csv.gz")
+    csv_path = os.path.join(out_root, f"{out_name}.csv")  # uncompressed CSV for img2dataset
+    csv_gz_path = os.path.join(out_root, f"{out_name}.csv.gz")  # compressed for storage
+    
     df.to_parquet(pq_path, index=False)
-    with gzip.open(csv_path, "wt", encoding="utf-8") as f:
-        # Only write the requested public columns to CSV
-        keep = ["url", "caption_orig", "lang", "p_aesthetic", "p_watermark", "p_nsfw", "source"]
+    keep = ["url", "caption_orig", "lang", "p_aesthetic", "p_watermark", "p_nsfw", "source"]
+    df[keep].to_csv(csv_path, index=False)
+    
+    # writing compressed version for storage
+    with gzip.open(csv_gz_path, "wt", encoding="utf-8") as f:
         df[keep].to_csv(f, index=False)
+    
     return pq_path, csv_path
 
 @hydra.main(config_path="../configs", config_name="ingest", version_base=None)
@@ -122,16 +127,15 @@ def main(cfg):
     print(f"[OK] Wrote shard plan:\n  {plan_path}")
 
     # img2dataset job JSON
-    # We preserve auxiliary columns so they are available in shard .json sidecars.
+    # preserve auxiliary columns so they are available in shard .json sidecars
     job = {
-        "url_list": csv_path,  # Use CSV file instead of parquet for img2dataset
+        "url_list": csv_path,  # uncompressed CSV file for img2dataset
         "url_col": "url",
         "caption_col": "caption_orig",
         "save_additional_columns": [
-            "lang", "p_aesthetic", "p_watermark", "p_nsfw", "source",
-            "similarity", "hash"
+            "lang", "p_aesthetic", "p_watermark", "p_nsfw", "source"
         ],
-        "output_format": str(cfg.img2dataset.output_format),   # "webdataset"
+        "output_format": str(cfg.img2dataset.output_format),
         "output_folder": os.path.abspath(os.path.join(cfg.shards_root, cfg.laion.out_name)),
         "image_size": int(cfg.img2dataset.image_size),
         "resize_mode": str(cfg.img2dataset.resize_mode),
@@ -139,6 +143,8 @@ def main(cfg):
         "thread_count": int(cfg.img2dataset.thread_count),
         "timeout": int(cfg.img2dataset.timeout),
         "number_sample_per_shard": int(samples_per_shard),
+        "skip_reencode": True,  # skip re-encoding for faster processing
+        "skip_if_exists": False,  # overwrite existing files
     }
     job_path = os.path.join(plans_dir, "img2dataset_job_laion2B_en.json")
     with open(job_path, "w") as f:
