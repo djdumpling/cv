@@ -129,7 +129,7 @@ def main(cfg):
         "caption_col": "caption_orig",
         "save_additional_columns": [
             "lang", "p_aesthetic", "p_watermark", "p_nsfw", "source",
-            "width", "height", "similarity", "hash"
+            "similarity", "hash"
         ],
         "output_format": str(cfg.img2dataset.output_format),   # "webdataset"
         "output_folder": os.path.abspath(os.path.join(cfg.shards_root, cfg.laion.out_name)),
