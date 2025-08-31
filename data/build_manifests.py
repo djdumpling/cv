@@ -39,11 +39,19 @@ def _write_outputs(df: pd.DataFrame, out_root: str, out_name: str):
     csv_gz_path = os.path.join(out_root, f"{out_name}.csv.gz")  # compressed for storage
     
     df.to_parquet(pq_path, index=False)
+    # for img2dataset compatibility, create a simple format
     keep = ["url", "caption_orig", "lang", "p_aesthetic", "p_watermark", "p_nsfw", "source"]
     csv_df = df[keep].copy()
     # Rename caption column to what img2dataset expects
     csv_df = csv_df.rename(columns={"caption_orig": "caption"})
-    csv_df.to_csv(csv_path, index=False)
+    
+    # Create a minimal CSV with just URL and caption for img2dataset
+    minimal_csv = csv_df[["url", "caption"]].copy()
+    minimal_csv.to_csv(csv_path, index=False)
+    
+    # Also create a full CSV with all columns for reference
+    full_csv_path = os.path.join(out_root, f"{out_name}_full.csv")
+    csv_df.to_csv(full_csv_path, index=False)
     
     # writing compressed version for storage
     with gzip.open(csv_gz_path, "wt", encoding="utf-8") as f:
@@ -133,11 +141,13 @@ def main(cfg):
     # preserve auxiliary columns so they are available in shard .json sidecars
     job = {
         "url_list": csv_path,  # uncompressed CSV file for img2dataset
+        "input_format": "csv",
         "url_col": "url",
         "caption_col": "caption",
-        "save_additional_columns": [
-            "lang", "p_aesthetic", "p_watermark", "p_nsfw", "source"
-        ],
+        # Removed save_additional_columns to avoid CSV parsing issues
+        # "save_additional_columns": [
+        #     "lang", "p_aesthetic", "p_watermark", "p_nsfw", "source"
+        # ],
         "output_format": str(cfg.img2dataset.output_format),
         "output_folder": os.path.abspath(os.path.join(cfg.shards_root, cfg.laion.out_name)),
         "image_size": int(cfg.img2dataset.image_size),
