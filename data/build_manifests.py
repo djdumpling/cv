@@ -142,9 +142,7 @@ def main(cfg):
         "processes_count": int(cfg.img2dataset.processes_count),
         "thread_count": int(cfg.img2dataset.thread_count),
         "timeout": int(cfg.img2dataset.timeout),
-        "number_sample_per_shard": int(samples_per_shard),
-        "skip_reencode": True,  # skip re-encoding for faster processing
-        "skip_if_exists": False,  # overwrite existing files
+        "number_sample_per_shard": int(samples_per_shard)
     }
     job_path = os.path.join(plans_dir, "img2dataset_job_laion2B_en.json")
     with open(job_path, "w") as f:
