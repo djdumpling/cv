@@ -27,7 +27,7 @@ def image_decoder(sample_bytes):
 def make_wds(shards_pattern: str, image_size: int = 256, shuffle_buffer: int = 2000, center_crop: bool = False, 
                     handler: Optional[Callable] = wds.warn_and_continue):
     transform = build_transforms(image_size = image_size, center_crop = center_crop)
-    dataset = (wds.WebDataset(shards_pattern, handler = handler)
+    dataset = (wds.WebDataset(shards_pattern, handler = handler, empty_check=False, shardshuffle=False)
                .shuffle(shuffle_buffer)  # shuffle samples
                .decode(wds.handle_extension("jpg", image_decoder))  # use jpg decoder
                .to_tuple("jpg;png", "txt", "json")  # output tuples: (image, text, json)

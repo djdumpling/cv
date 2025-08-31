@@ -26,10 +26,14 @@ def main(cfg):
     imgs, caps, metas = next(it)
     print(f"[OK] batch images: {imgs.shape} | #captions: {len(caps)} | #metas: {len(metas)}")
 
-    # peek at one meta dict to confirm aux columns are present
-    sample_meta = metas[0]
-    keep = {k: sample_meta.get(k) for k in ["url", "lang", "p_aesthetic", "p_watermark", "p_nsfw", "source", "width", "height", "similarity", "hash"]}
-    print(f"[Meta sample] {keep}")
+    # peek at metadata - metas is a batched dict with tensor values
+    if isinstance(metas, dict) and len(metas) > 0:
+        print(f"[Meta keys] {list(metas.keys())}")
+        # sample first item from each metadata field
+        sample = {k: v[0].item() if hasattr(v, 'item') else v[0] for k, v in metas.items()}
+        print(f"[Meta sample] {sample}")
+    else:
+        print("[Meta sample] No metadata found")
 
 if __name__ == "__main__":
     main()
