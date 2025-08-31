@@ -40,7 +40,10 @@ def _write_outputs(df: pd.DataFrame, out_root: str, out_name: str):
     
     df.to_parquet(pq_path, index=False)
     keep = ["url", "caption_orig", "lang", "p_aesthetic", "p_watermark", "p_nsfw", "source"]
-    df[keep].to_csv(csv_path, index=False)
+    csv_df = df[keep].copy()
+    # Rename caption column to what img2dataset expects
+    csv_df = csv_df.rename(columns={"caption_orig": "caption"})
+    csv_df.to_csv(csv_path, index=False)
     
     # writing compressed version for storage
     with gzip.open(csv_gz_path, "wt", encoding="utf-8") as f:
@@ -131,7 +134,7 @@ def main(cfg):
     job = {
         "url_list": csv_path,  # uncompressed CSV file for img2dataset
         "url_col": "url",
-        "caption_col": "caption_orig",
+        "caption_col": "caption",
         "save_additional_columns": [
             "lang", "p_aesthetic", "p_watermark", "p_nsfw", "source"
         ],
