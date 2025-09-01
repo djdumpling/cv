@@ -1,4 +1,5 @@
 import io
+import json
 from typing import Optional, Callable, Dict
 
 import webdataset as wds
@@ -33,51 +34,62 @@ def make_wds(shards_pattern: str, image_size: int = 256, shuffle_buffer: int = 2
         print(f"[WebDataset Warning] {type(exn).__name__}: {exn}")
         return True  # Continue processing
     
-    # Try the standard webdataset approach first
-    try:
-        dataset = (wds.WebDataset(shards_pattern, handler=safe_handler, empty_check=False, shardshuffle=False)
-                   .shuffle(shuffle_buffer)
-                   .decode(wds.handle_extension("jpg", image_decoder))
-                   .to_tuple("jpg;png", "txt", "json")
-                   .select(lambda sample: all(x is not None for x in sample))  # filter out None samples
-                   .map_tuple(transform, lambda x: x, lambda x:x))
-        return dataset
-    except Exception as e:
-        print(f"[WebDataset] Standard loader failed: {e}, trying alternative...")
-        
-        # Fallback: more flexible approach
-        def process_sample(sample):
-            try:
-                # Extract components with multiple fallbacks
-                image = None
-                for ext in ["jpg", "jpeg", "png", "webp"]:
-                    if ext in sample:
-                        image = sample[ext]
-                        break
-                
-                caption = sample.get("txt", "")
-                if isinstance(caption, bytes):
-                    caption = caption.decode('utf-8', errors='ignore')
-                
-                metadata = sample.get("json", {})
-                
-                if image is None:
-                    return None
-                    
-                return (image, caption, metadata)
-            except Exception as e:
-                print(f"[WebDataset] Error processing sample: {e}")
+    def validate_and_process(sample):
+        """Validate and process each sample, returning None for invalid ones"""
+        try:
+            img, txt, meta = sample
+            
+            # Must have valid image
+            if img is None:
                 return None
-        
-        dataset = (wds.WebDataset(shards_pattern, handler=safe_handler, empty_check=False, shardshuffle=False)
-                   .shuffle(shuffle_buffer)
-                   .decode(wds.handle_extension("jpg", image_decoder))
-                   .map(process_sample)
-                   .select(lambda x: x is not None)
-                   .map_tuple(transform, lambda x: x, lambda x:x))
-        return dataset
+                
+            # Ensure text is string
+            if txt is None:
+                txt = ""
+            elif isinstance(txt, bytes):
+                txt = txt.decode('utf-8', errors='ignore')
+            
+            # Ensure metadata is dict
+            if meta is None:
+                meta = {}
+            elif isinstance(meta, str):
+                try:
+                    meta = json.loads(meta)
+                except:
+                    meta = {}
+            
+            return (img, txt, meta)
+        except Exception as e:
+            print(f"[WebDataset] Error processing sample: {e}")
+            return None
+    
+    # Use a robust pipeline that handles img2dataset format
+    dataset = (wds.WebDataset(shards_pattern, handler=safe_handler, empty_check=False, shardshuffle=False)
+               .shuffle(shuffle_buffer)
+               .decode("pil")  # Use built-in PIL decoder
+               .to_tuple("jpg;png;jpeg", "txt", "json")
+               .map(validate_and_process)  # Validate and clean samples
+               .select(lambda x: x is not None)  # Filter out None samples
+               .map_tuple(transform, lambda x: x, lambda x: x))  # Apply transforms
     
     return dataset
+
+def safe_collate_fn(batch):
+    """Custom collate function that handles None values and malformed samples"""
+    # Filter out None values and invalid samples
+    valid_batch = []
+    for item in batch:
+        if item is not None and len(item) == 3:  # Should be (image, text, metadata)
+            img, txt, meta = item
+            if img is not None:  # Must have valid image
+                valid_batch.append(item)
+    
+    if len(valid_batch) == 0:
+        # Return empty batch with correct structure
+        return torch.empty(0, 3, 256, 256), [], []
+    
+    # Use default collate on valid samples
+    return torch.utils.data.dataloader.default_collate(valid_batch)
 
 def make_loader(shards_pattern: Optional[str], batch_size: int, num_workers: int, image_size: int, center_crop: bool):
     # sanity check for pure synthetic data
@@ -85,4 +97,5 @@ def make_loader(shards_pattern: Optional[str], batch_size: int, num_workers: int
         return None
     # o/w, make web data set and load
     ds = make_wds(shards_pattern, image_size = image_size, center_crop = center_crop)
-    return DataLoader(ds, batch_size = batch_size, num_workers = num_workers, pin_memory = True, drop_last = True)
+    return DataLoader(ds, batch_size = batch_size, num_workers = num_workers, 
+                     pin_memory = True, drop_last = True, collate_fn = safe_collate_fn)
