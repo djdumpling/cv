@@ -27,11 +27,55 @@ def image_decoder(sample_bytes):
 def make_wds(shards_pattern: str, image_size: int = 256, shuffle_buffer: int = 2000, center_crop: bool = False, 
                     handler: Optional[Callable] = wds.warn_and_continue):
     transform = build_transforms(image_size = image_size, center_crop = center_crop)
-    dataset = (wds.WebDataset(shards_pattern, handler = handler, empty_check=False, shardshuffle=False)
-               .shuffle(shuffle_buffer)  # shuffle samples
-               .decode(wds.handle_extension("jpg", image_decoder))  # use jpg decoder
-               .to_tuple("jpg;png", "txt", "json")  # output tuples: (image, text, json)
-               .map_tuple(transform, lambda x: x, lambda x:x))  # apply transform to image, leave others unchanged
+    
+    def safe_handler(exn):
+        """More informative error handler for debugging"""
+        print(f"[WebDataset Warning] {type(exn).__name__}: {exn}")
+        return True  # Continue processing
+    
+    # Try the standard webdataset approach first
+    try:
+        dataset = (wds.WebDataset(shards_pattern, handler=safe_handler, empty_check=False, shardshuffle=False)
+                   .shuffle(shuffle_buffer)
+                   .decode(wds.handle_extension("jpg", image_decoder))
+                   .to_tuple("jpg;png", "txt", "json")
+                   .select(lambda sample: all(x is not None for x in sample))  # filter out None samples
+                   .map_tuple(transform, lambda x: x, lambda x:x))
+        return dataset
+    except Exception as e:
+        print(f"[WebDataset] Standard loader failed: {e}, trying alternative...")
+        
+        # Fallback: more flexible approach
+        def process_sample(sample):
+            try:
+                # Extract components with multiple fallbacks
+                image = None
+                for ext in ["jpg", "jpeg", "png", "webp"]:
+                    if ext in sample:
+                        image = sample[ext]
+                        break
+                
+                caption = sample.get("txt", "")
+                if isinstance(caption, bytes):
+                    caption = caption.decode('utf-8', errors='ignore')
+                
+                metadata = sample.get("json", {})
+                
+                if image is None:
+                    return None
+                    
+                return (image, caption, metadata)
+            except Exception as e:
+                print(f"[WebDataset] Error processing sample: {e}")
+                return None
+        
+        dataset = (wds.WebDataset(shards_pattern, handler=safe_handler, empty_check=False, shardshuffle=False)
+                   .shuffle(shuffle_buffer)
+                   .decode(wds.handle_extension("jpg", image_decoder))
+                   .map(process_sample)
+                   .select(lambda x: x is not None)
+                   .map_tuple(transform, lambda x: x, lambda x:x))
+        return dataset
     
     return dataset
 
